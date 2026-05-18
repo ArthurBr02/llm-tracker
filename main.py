@@ -73,6 +73,7 @@ def send_email_notification(new_models):
         
         model_info += f"  Input Modalities: {', '.join(input) if isinstance(input, list) else input}\n"
         model_info += f"  Output Modalities: {', '.join(output) if isinstance(output, list) else output}\n"
+        model_info += f"  Context length: {endpoint.get('context_length', 'N/A')}\n"
         model_info += f"  Free: {endpoint.get('is_free', 'N/A')}\n"
         model_info += f"  Created At: {date}\n"
 
