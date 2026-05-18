@@ -44,8 +44,12 @@ def init_data_file():
 def save_model_to_file(model):
     global data, filename
 
+    endpoint = model.get('endpoint') or {}
+    is_free = endpoint.get('is_free', False)
+    free_info = "Free" if is_free else "Paid"
+
     # Ajouter le nouveau modèle
-    data[model['permaslug']] = model
+    data[model['permaslug'] + "_" + free_info] = model
     
     # Écrire le tout
     with open(filename, 'w') as f:
@@ -111,7 +115,12 @@ if __name__ == "__main__":
         print("Available Models ({}):".format(len(models)))
         for model in models:
             print(f"- {model['name']} (ID: {model['permaslug']})")
-            if model['permaslug'] not in data:
+
+            endpoint = model.get('endpoint') or {}
+            is_free = endpoint.get('is_free', False)
+            free_info = "Free" if is_free else "Paid"
+
+            if model['permaslug'] + "_" + free_info not in data:
                 save_model_to_file(model)
                 new_models.append(model)
             else:
