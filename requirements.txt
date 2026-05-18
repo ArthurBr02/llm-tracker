@@ -1,0 +1,6 @@
+requests
+json
+smtplib
+email
+os
+dotenv
