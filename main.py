@@ -66,10 +66,10 @@ def send_email_notification(new_models):
     for model in new_models:
         model_info = f"- {model['name']} (ID: {model['permaslug']})\n"
 
-        input = model.get('input_modalities', "N/A")
-        output = model.get('output_modalities', "N/A")
-        endpoint = model.get('endpoint', {})
-        date = model.get('created_at', "N/A")
+        input = model.get('input_modalities') or "N/A"
+        output = model.get('output_modalities') or "N/A"
+        endpoint = model.get('endpoint') or {}
+        date = model.get('created_at') or "N/A"
         
         model_info += f"  Input Modalities: {', '.join(input) if isinstance(input, list) else input}\n"
         model_info += f"  Output Modalities: {', '.join(output) if isinstance(output, list) else output}\n"
@@ -81,6 +81,7 @@ def send_email_notification(new_models):
             model_info += f"  Pricing\n"
 
             for display_pricing in endpoint.get('display_pricing', []):
+                display_pricing = display_pricing or {}
                 model_info += f"    - {display_pricing.get('sku_label', 'N/A')}: {display_pricing.get('price', 'N/A')}{display_pricing.get('unitLabel', 'N/A') }\n"
 
         model_info += f"  Quantization: {model.get('quantization', 'N/A')}\n"
