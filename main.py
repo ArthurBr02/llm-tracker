@@ -25,23 +25,19 @@ def get_models():
 def init_data_file():
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
-    file_path = os.path.join(DATA_DIR, DATA_FILE_NAME)
-    if not os.path.isfile(file_path):
-        with open(file_path, 'w') as f:
-            json.dump({}, f)
-    
-    
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
 
     filename = f"{DATA_DIR}/{DATA_FILE_NAME}"
     
-    # Lire le contenu existant
+    # Create file if it doesn't exist
+    if not os.path.isfile(filename):
+        with open(filename, 'w') as f:
+            json.dump({}, f)
+    
+    # Read existing data
     data = {}
-    if os.path.exists(filename):
-        with open(filename, 'r') as f:
-            content = f.read()
-            data = json.loads(content) if content else {}
+    with open(filename, 'r') as f:
+        content = f.read()
+        data = json.loads(content) if content else {}
 
     return data, filename
 
