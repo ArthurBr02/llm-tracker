@@ -1,8 +1,14 @@
 import requests
-import json
 import os
 import smtplib
 from email.mime.text import MIMEText
+
+from file import init_data_file
+from file import save_model_to_file
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 OPENROUTER_URL = "https://openrouter.ai/api/frontend/models"
 DATA_FILE_NAME = "openrouter.json"
@@ -19,39 +25,6 @@ def get_models():
         print(f"Failed to fetch models: {response.status_code}")
         return None
 
-def init_data_file():
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-
-    filename = f"{DATA_DIR}/{DATA_FILE_NAME}"
-    
-    # Create file if it doesn't exist
-    if not os.path.isfile(filename):
-        with open(filename, 'w') as f:
-            json.dump({}, f)
-    
-    # Read existing data
-    data = {}
-    with open(filename, 'r') as f:
-        content = f.read()
-        data = json.loads(content) if content else {}
-
-    return data, filename
-
-def save_model_to_file(model):
-    global data, filename
-
-    endpoint = model.get('endpoint') or {}
-    is_free = endpoint.get('is_free', False)
-    free_info = "Free" if is_free else "Paid"
-
-    # Ajouter le nouveau modèle
-    data[model['permaslug'] + "_" + free_info] = model
-    
-    # Écrire le tout
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=4)
-
 def send_email_notification(new_models):
     FROM = os.getenv('EMAIL_FROM')
     TO = os.getenv('EMAIL_TO')
@@ -59,7 +32,7 @@ def send_email_notification(new_models):
     PORT = os.getenv('EMAIL_PORT')
     USERNAME = os.getenv('EMAIL_USERNAME')
     PASSWORD = os.getenv('EMAIL_PASSWORD')
-    SUBJECT = "New Models Added"
+    SUBJECT = "Openrouter - New Models Added"
     BODY = "The following new models have been added:\n\n"
     
     models_info = []
@@ -104,7 +77,7 @@ def send_email_notification(new_models):
 
 def execute():
     models = get_models()
-    data, filename = init_data_file()
+    data, filename = init_data_file(DATA_DIR, DATA_FILE_NAME)
 
     new_models = []
 
@@ -116,9 +89,10 @@ def execute():
             endpoint = model.get('endpoint') or {}
             is_free = endpoint.get('is_free', False)
             free_info = "Free" if is_free else "Paid"
+            id = model['permaslug'] + "_" + free_info
 
-            if model['permaslug'] + "_" + free_info not in data:
-                save_model_to_file(model)
+            if id not in data:
+                save_model_to_file(data, filename, model, id)
                 new_models.append(model)
             else:
                 print("Model already exists.")

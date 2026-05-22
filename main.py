@@ -1,8 +1,7 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
+import openrouter
+import ollama
 
 
 if __name__ == "__main__":
     openrouter.execute()
+    ollama.execute()
