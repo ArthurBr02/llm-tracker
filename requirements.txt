@@ -1,6 +1,3 @@
 requests
-json
-smtplib
-email
-os
 dotenv
+mistralai
