@@ -23,20 +23,21 @@ def get_models():
     response = requests.get(LMSTUDIO_URL)
     if response.status_code == 200:
         content = response.text
-        i = 0
-        while True and i < 5:
-            try:
-                models = parse_models(content)
-                json_models = json.loads(models)
-                return json_models
-            except Exception as e:
-                print(f"Error parsing models: {e}")
-                print(f"{i}/5 - Retrying...")
-                i += 1
+        # i = 0
+        # while True and i < 5:
+        #     try:
+        #         models = parse_models(content)
+        #         json_models = json.loads(models)
+        #         return json_models
+        #     except Exception as e:
+        #         print(f"Error parsing models: {e}")
+        #         print(f"{i}/5 - Retrying...")
+        #         i += 1
         
-        if i == 5:
-            print("Failed to parse models after 5 attempts.")
-            return None
+        # if i == 5:
+        #     print("Failed to parse models after 5 attempts.")
+        #     return None
+        return parse_models_2(content)
     else:
         print(f"Failed to fetch models: {response.status_code}")
         return None
@@ -53,6 +54,73 @@ def parse_models(content):
     
     return mistral.parse_models(PROMPT_SYSTEM_FILENAME, str(models))
 
+def parse_models_2(model):
+    soup = bs4.BeautifulSoup(str(model), 'html.parser')
+    cards = soup.select('a[href^="/models/"]')
+    if not cards and soup.name == 'a':
+        cards = [soup]
+
+    models = []
+
+    for card in cards:
+        name_tag = card.select_one('.text-lg.font-medium')
+        name = name_tag.get_text(strip=True) if name_tag else card.get('title')
+        if not name:
+            continue
+
+        href = card.get('href')
+        if href and href.startswith('/models/'):
+            slug = href.split('/models/', 1)[1].strip('/')
+            url = f"https://lmstudio.ai/models/{slug}" if slug else href
+        else:
+            url = href
+
+        description_tag = card.select_one('.text-muted-foreground')
+        description = description_tag.get_text(" ", strip=True) if description_tag else None
+
+        sizes = []
+        for size_tag in card.select('[title^="Model size:"]'):
+            size = size_tag.get_text(strip=True)
+            if size and size not in sizes:
+                sizes.append(size)
+
+        text_content = card.get_text(" ", strip=True).lower()
+        capabilities = {
+            "tools": True if any(keyword in text_content for keyword in ["tool calling", "tool use", "tool", "function calling", "function-calling"]) else None,
+            "reasoning": True if any(keyword in text_content for keyword in ["reasoning", "thinking"]) else None,
+            "vision": True if any(keyword in text_content for keyword in ["vision", "image", "multimodal"]) else None,
+        }
+
+        stats = card.select('span.font-medium')
+        downloads_tag = stats[0] if len(stats) > 0 else None
+        likes_tag = stats[1] if len(stats) > 1 else None
+
+        downloads = downloads_tag.get_text(strip=True) if downloads_tag else None
+        likes_text = likes_tag.get_text(strip=True) if likes_tag else None
+        likes = int(likes_text) if likes_text and likes_text.isdigit() else likes_text
+
+        updated = None
+        for element in card.select('[class*="opacity-70"]'):
+            element_text = element.get_text(" ", strip=True)
+            if element_text.lower().startswith('updated '):
+                updated = element_text.replace('Updated ', '', 1)
+                break
+        if not updated:
+            updated = "Unknown"
+
+        models.append({
+            "name": name,
+            "url": url,
+            "description": description,
+            "sizes": sizes,
+            "capabilities": capabilities,
+            "downloads": downloads,
+            "likes": likes,
+            "updated": updated,
+        })
+
+    return models
+
 def send_email_notification(new_models):
     FROM = os.getenv('EMAIL_FROM')
     TO = os.getenv('EMAIL_TO')
@@ -62,23 +130,6 @@ def send_email_notification(new_models):
     PASSWORD = os.getenv('EMAIL_PASSWORD')
     SUBJECT = "LMStudio - New Models Added"
     BODY = "The following new models have been added:\n\n"
-    
-    # [
-    # {
-    #     "name": "Granite 4.1",
-    #     "url": "https://huggingface.co/models/granite-4.1",
-    #     "description": "Granite 4.1 models are new and improved granite models which have gone through an improved post-training pipeline, including supervised finetuning and reinforcement learning alignment, resulting in enhanced tool calling, instruction following, and chat capabilities.",
-    #     "sizes": ["3B", "8B", "30B"],
-    #     "capabilities": {
-    #     "tools": true,
-    #     "reasoning": null,
-    #     "vision": null
-    #     },
-    #     "downloads": "1.6K",
-    #     "likes": 1,
-    #     "updated": "1 day ago"
-    # }
-    # ]
 
     models_info = []
 
@@ -91,8 +142,6 @@ def send_email_notification(new_models):
         for capability, value in capabilities.items():
             if value is True:
                 _capabilities.append(capability.capitalize())
-            elif value is not None:
-                _capabilities.append(f"{capability.capitalize()}: {value}")
 
         sizes = model.get('sizes') or "N/A"
         downloads = model.get('downloads') or "N/A"
