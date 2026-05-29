@@ -181,9 +181,9 @@ def execute():
     if models:
         print("Available Models ({}):".format(len(models)))
         for model in models:
-            print(f"- {model['name']} (ID: {model['name']}_{model['updated']})")
+            print(f"- {model['name']} (ID: {model['name']})")
 
-            id = model['name'] + "_" + model['updated']
+            id = model['name']
             if id not in data:
                 save_model_to_file(data, filename, model, id)
                 new_models.append(model)
@@ -194,7 +194,7 @@ def execute():
     if new_models:
         print("\nNew models added:")
         for model in new_models:
-            print(f"- {model['name']} (ID: {model['name']}_{model['updated']})")
+            print(f"- {model['name']} (ID: {model['name']})")
         send_email_notification(new_models)
     else:
         print("\nNo new models were added.")
