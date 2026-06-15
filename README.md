@@ -26,12 +26,13 @@ cp env.example .env
 3. Edit `.env` with your SMTP configuration (and API keys):
 ```text
 EMAIL_FROM=your-email@example.com
-EMAIL_TO=recipient@example.com
+EMAIL_TO=recipient@example.com # Plusieurs destinataires possibles, séparés par des virgules : a@x.com,b@y.com
 EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
 EMAIL_USERNAME=your-username
 EMAIL_PASSWORD=your-password
 
+OPENROUTER_API_KEY=your-api-key # Required to fetch models from the OpenRouter API
 MISTRAL_API_KEY=your-api-key # Used for the experimental Mistral parser
 ```
 
