@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENROUTER_URL = "https://openrouter.ai/api/frontend/models"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/models"
 DATA_FILE_NAME = "openrouter.json"
 DATA_DIR = "data"
 
@@ -18,7 +18,9 @@ data = None
 filename = None
 
 def get_models():
-    response = requests.get(OPENROUTER_URL)
+    API_KEY = os.getenv('OPENROUTER_API_KEY')
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    response = requests.get(OPENROUTER_URL, headers=headers)
     if response.status_code == 200:
         return response.json().get('data', [])
     else:
@@ -27,7 +29,7 @@ def get_models():
 
 def send_email_notification(new_models):
     FROM = os.getenv('EMAIL_FROM')
-    TO = os.getenv('EMAIL_TO')
+    TO = [email.strip() for email in (os.getenv('EMAIL_TO') or "").split(",") if email.strip()]
     HOST = os.getenv('EMAIL_HOST')
     PORT = os.getenv('EMAIL_PORT')
     USERNAME = os.getenv('EMAIL_USERNAME')
@@ -38,41 +40,42 @@ def send_email_notification(new_models):
     models_info = []
 
     for model in new_models:
-        model_info = f"- {model['name']} (ID: {model['permaslug']})\n"
+        model_info = f"- {model['name']} (ID: {model['id']})\n"
 
-        input = model.get('input_modalities') or "N/A"
-        output = model.get('output_modalities') or "N/A"
-        endpoint = model.get('endpoint') or {}
-        date = model.get('created_at') or "N/A"
-        
+        architecture = model.get('architecture') or {}
+        input = architecture.get('input_modalities') or "N/A"
+        output = architecture.get('output_modalities') or "N/A"
+        pricing = model.get('pricing') or {}
+        date = model.get('created') or "N/A"
+
         model_info += f"  Input Modalities: {', '.join(input) if isinstance(input, list) else input}\n"
         model_info += f"  Output Modalities: {', '.join(output) if isinstance(output, list) else output}\n"
-        model_info += f"  Context length: {endpoint.get('context_length', 'N/A')}\n"
-        model_info += f"  Free: {endpoint.get('is_free', 'N/A')}\n"
-        model_info += f"  Created At: {date}\n"
+        model_info += f"  Context length: {model.get('context_length', 'N/A')}\n"
+        model_info += f"  Created: {date}\n"
 
-        if not endpoint.get('is_free', False):
+        is_free = all(float(v or 0) == 0 for v in pricing.values()) if pricing else False
+        model_info += f"  Free: {is_free}\n"
+
+        if not is_free:
             model_info += f"  Pricing\n"
 
-            for display_pricing in endpoint.get('display_pricing', []):
-                display_pricing = display_pricing or {}
-                model_info += f"    - {display_pricing.get('sku_label', 'N/A')}: {display_pricing.get('price', 'N/A')}{display_pricing.get('unitLabel', 'N/A') }\n"
+            for sku, price in pricing.items():
+                model_info += f"    - {sku}: {price}\n"
 
-        model_info += f"  Quantization: {model.get('quantization', 'N/A')}\n"
-        model_info += f"  URL: https://openrouter.ai/models/{model['permaslug']}\n\n"
-        
+        model_info += f"  URL: https://openrouter.ai/models/{model['id']}\n\n"
+
         models_info.append(model_info)
 
     BODY += "----------------------------------\n".join(models_info)
     msg = MIMEText(BODY)
     msg['Subject'] = SUBJECT
     msg['From'] = FROM
-    msg['To'] = TO
+    msg['To'] = ", ".join(TO)
 
     s = smtplib.SMTP(HOST, PORT)
     s.starttls()
     s.login(USERNAME, PASSWORD)
-    s.sendmail(FROM, [TO], msg.as_string())
+    s.sendmail(FROM, TO, msg.as_string())
     s.quit()
 
 def execute():
@@ -84,12 +87,9 @@ def execute():
     if models:
         print("Available Models ({}):".format(len(models)))
         for model in models:
-            print(f"- {model['name']} (ID: {model['permaslug']})")
+            print(f"- {model['name']} (ID: {model['id']})")
 
-            endpoint = model.get('endpoint') or {}
-            is_free = endpoint.get('is_free', False)
-            free_info = "Free" if is_free else "Paid"
-            id = model['permaslug'] + "_" + free_info
+            id = f"{model['canonical_slug']}_{model['created']}"
 
             if id not in data:
                 save_model_to_file(data, filename, model, id)
@@ -101,7 +101,7 @@ def execute():
     if new_models:
         print("\nNew models added:")
         for model in new_models:
-            print(f"- {model['name']} (ID: {model['permaslug']})")
+            print(f"- {model['name']} (ID: {model['id']})")
         send_email_notification(new_models)
     else:
         print("\nNo new models were added.")
